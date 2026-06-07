@@ -9,10 +9,6 @@ jobs:
   download-wheel:
     runs-on: ubuntu-latest
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Download quarantined wheel directly from files.pythonhosted.org
         run: |
@@ -34,10 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: download-wheel
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -57,6 +49,8 @@ jobs:
 
       - name: Write and execute fixed payload
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           PKG_DIR=$(python -c "import uprobe, os; print(os.path.dirname(uprobe.__file__))")
           echo "package dir: $PKG_DIR"
@@ -123,10 +117,6 @@ jobs:
   analyze-funcdesc-022:
     runs-on: ubuntu-latest
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -143,6 +133,8 @@ jobs:
 
       - name: Write and execute fixed payload
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           PKG_DIR=$(python -m pip show -f funcdesc | grep "^Location:" | awk '{print $2}')/funcdesc
           echo "package dir: $PKG_DIR"
@@ -209,10 +201,6 @@ jobs:
   analyze-funcdesc-023:
     runs-on: ubuntu-latest
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -229,6 +217,8 @@ jobs:
 
       - name: Write and execute fixed payload
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           PKG_DIR=$(python -m pip show -f funcdesc | grep "^Location:" | awk '{print $2}')/funcdesc
           echo "package dir: $PKG_DIR"
@@ -295,10 +285,6 @@ jobs:
   analyze-magique-068:
     runs-on: ubuntu-latest
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -315,6 +301,8 @@ jobs:
 
       - name: Write and execute fixed payload
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           PKG_DIR=$(python -m pip show -f magique | grep "^Location:" | awk '{print $2}')/magique
           echo "package dir: $PKG_DIR"
@@ -381,10 +369,6 @@ jobs:
   analyze-magique-069:
     runs-on: ubuntu-latest
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -401,6 +385,8 @@ jobs:
 
       - name: Write and execute fixed payload
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           PKG_DIR=$(python -m pip show -f magique | grep "^Location:" | awk '{print $2}')/magique
           echo "package dir: $PKG_DIR"
