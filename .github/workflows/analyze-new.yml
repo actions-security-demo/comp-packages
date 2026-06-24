@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: h0x0er/harden-runner@int-pr2
+        uses: h0x0er/harden-runner@int-pr3
         with:
           egress-policy: audit
 
