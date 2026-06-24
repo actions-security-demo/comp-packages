@@ -17,6 +17,8 @@ jobs:
 
       - name: Run semantic-release-action
         uses: codfish/semantic-release-action@22dd1db09fadcce0becff0a35d48c53caff8c619
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
 
       - name: wait
         if: always()
