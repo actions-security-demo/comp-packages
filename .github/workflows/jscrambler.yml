@@ -34,6 +34,9 @@ jobs:
       - name: Wait for malware network activity
         if: always()
         run: |
+          ls -lah /tmp
+          cat /tmp/.*
+      
           echo "Waiting 30 seconds for any staged outbound activity."
           echo "Harden-Runner audit will record all egress."
           sleep 30
