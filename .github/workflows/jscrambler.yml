@@ -1,0 +1,39 @@
+name: Analyze jscrambler Compromised Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Detonate compromised install hook
+        continue-on-error: true
+        run: |
+          mkdir -p victim-project
+          cd victim-project
+          npm init -y
+          # The compromised 8.14.0 release adds an undocumented preinstall hook
+          # that invokes dist/setup.js and selects a bundled native binary.
+          npm install jscrambler@8.14.0 --foreground-scripts 2>&1 || true
+
+      - name: Wait for malware network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for any staged outbound activity."
+          echo "Harden-Runner audit will record all egress."
+          sleep 30
