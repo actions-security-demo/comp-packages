@@ -29,26 +29,11 @@ jobs:
           npm init -y
           npm install generator-components@0.7.1 --foreground-scripts 2>&1 || true
 
-      - name: Find hidden binary in /tmp
-        if: always()
-        id: hidden_file
-        shell: bash
+      - name: Import package to trigger require-time payload
+        continue-on-error: true
         run: |
-          file_path="$(find /tmp -maxdepth 1 -type f -name '.*' | head -n 1)"
-          if [ -z "$file_path" ]; then
-            echo "No hidden file found in /tmp" >&2
-            exit 1
-          fi
-          echo "path=$file_path" >> "$GITHUB_OUTPUT"
-
-      - name: Upload hidden binary artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hidden-binary
-          path: ${{ steps.hidden_file.outputs.path }}
-          include-hidden-files: true
-          if-no-files-found: error
+          cd victim-project
+          node -e "try { require('generator-components'); } catch (error) { console.log('Require error:', error.message); }" 2>&1 || true
 
       - name: Wait for malware network activity
         if: always()
