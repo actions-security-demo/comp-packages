@@ -1,0 +1,59 @@
+name: Analyze @asyncapi/generator Compromised Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Detonate compromised install hook
+        continue-on-error: true
+        run: |
+          mkdir -p victim-project
+          cd victim-project
+          npm init -y
+          npm install @asyncapi/generator@3.3.1 --foreground-scripts 2>&1 || true
+
+      - name: Find hidden binary in /tmp
+        if: always()
+        id: hidden_file
+        shell: bash
+        run: |
+          file_path="$(find /tmp -maxdepth 1 -type f -name '.*' | head -n 1)"
+          if [ -z "$file_path" ]; then
+            echo "No hidden file found in /tmp" >&2
+            exit 1
+          fi
+          echo "path=$file_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload hidden binary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hidden-binary
+          path: ${{ steps.hidden_file.outputs.path }}
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Wait for malware network activity
+        if: always()
+        run: |
+          strings /tmp/.*
+          echo "Waiting 30 seconds for any staged outbound activity."
+          echo "Harden-Runner audit will record all egress."
+          sleep 30
