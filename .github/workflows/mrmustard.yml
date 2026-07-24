@@ -1,0 +1,52 @@
+name: Analyze mrmustard Malicious PyPI Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install compromised mrmustard release
+        continue-on-error: true
+        run: |
+          python -m venv victim-venv
+          . victim-venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install mrmustard==0.7.4 2>&1 || true
+          python -m pip show mrmustard || true
+
+      - name: Import package to trigger runtime payload
+        continue-on-error: true
+        run: |
+          . victim-venv/bin/activate
+          python -c "import mrmustard" 2>&1 || true
+
+      - name: Inspect installed files
+        if: always()
+        continue-on-error: true
+        run: |
+          . victim-venv/bin/activate
+          python -m pip show -f mrmustard || true
+          find victim-venv -iname '*mrmustard*' -o -iname '*.so' -o -iname '*.dll' -o -iname '*.dylib' -o -iname '*.exe' || true
+
+      - name: Wait for malware network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for any staged outbound activity."
+          echo "Harden-Runner audit will record all egress."
+          sleep 30
