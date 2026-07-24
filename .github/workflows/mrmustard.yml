@@ -31,7 +31,16 @@ jobs:
           victim-venv/bin/python -m pip install --upgrade pip
           victim-venv/bin/python -m pip install ./mrmustard-0.7.4.tar.gz 2>&1 || true
           victim-venv/bin/python -m pip show mrmustard || true
-          victim-venv/bin/python -c "import mrmustard" 2>&1 || true
+          victim-venv/bin/python - <<'PY' 2>&1 || true
+          import mrmustard
+
+          check = getattr(mrmustard, "_check_tf_compatibility", None)
+          if callable(check):
+              print("Calling mrmustard._check_tf_compatibility()")
+              check()
+          else:
+              print("mrmustard._check_tf_compatibility not available")
+          PY
 
       - name: Inspect installed files
         if: always()
