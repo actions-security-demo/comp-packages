@@ -1,0 +1,92 @@
+name: Detonate mrmustard 0.7.4 (keep process alive to capture beacon)
+
+on:
+  push:
+    branches: [detonate-mrmustard]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit mode (capture C2 beacon)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install from tarball, then import and STAY ALIVE so the daemon thread beacons
+        continue-on-error: true
+        run: |
+          python -m venv victim-venv
+          victim-venv/bin/python -m pip install --upgrade pip
+          victim-venv/bin/python -m pip install ./mrmustard-0.7.4.tar.gz 2>&1 || true
+          # env -i strips CI/GITHUB_* so the CI-evasion check is bypassed and the
+          # payload treats the runner as a developer machine. Keeping the process
+          # alive for 90s lets the daemon exfil thread finish DNS + the POST.
+          env -i HOME="$HOME" PATH="$PATH" victim-venv/bin/python - <<'PY' 2>&1 || true
+          import mrmustard, time
+          print("imported mrmustard; holding process open so the background thread can beacon")
+          time.sleep(90)
+          print("done waiting")
+          PY
+
+      - name: Show dropped persistence artifacts (evidence)
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "== ~/.cache/.tf_cache =="; ls -la ~/.cache/.tf_cache 2>/dev/null || echo "absent"
+          echo "== crontab =="; crontab -l 2>/dev/null || echo "no crontab"
+          echo "== .pth in venv site-packages =="; find victim-venv -name '*.pth' | xargs -r grep -l subprocess 2>/dev/null || echo "none"
+          echo "== bashrc tail =="; tail -n 5 ~/.bashrc 2>/dev/null || true
+
+  block:
+    name: Block mode (Harden-Runner denies the C2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner (block egress off the allowlist)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install, then import and stay alive (beacon should be BLOCKED)
+        continue-on-error: true
+        run: |
+          python -m venv victim-venv
+          victim-venv/bin/python -m pip install --upgrade pip
+          victim-venv/bin/python -m pip install ./mrmustard-0.7.4.tar.gz 2>&1 || true
+          env -i HOME="$HOME" PATH="$PATH" victim-venv/bin/python - <<'PY' 2>&1 || true
+          import mrmustard, time
+          print("imported under block mode; the beacon to the C2 should be denied")
+          time.sleep(90)
+          print("done waiting")
+          PY
