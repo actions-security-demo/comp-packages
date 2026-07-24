@@ -1,0 +1,54 @@
+name: Inspect mrmustard tarball (source only, no execution)
+
+on:
+  push:
+    branches: [inspect-mrmustard]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Hash the artifact
+        run: |
+          echo "== sha256 =="
+          sha256sum mrmustard-0.7.4.tar.gz
+          echo "== size =="
+          ls -l mrmustard-0.7.4.tar.gz
+
+      - name: Extract without executing
+        run: |
+          mkdir -p extracted
+          tar -xzf mrmustard-0.7.4.tar.gz -C extracted
+          echo "== top-level entries =="
+          ls -la extracted
+          echo "== full file list =="
+          find extracted -type f | sort
+
+      - name: Locate __init__.py files and search for IOC markers
+        run: |
+          echo "== all __init__.py files with line counts =="
+          find extracted -name '__init__.py' -print0 | xargs -0 wc -l
+          echo
+          echo "== grep for payload / IOC markers across the whole tree =="
+          grep -rniE "_check_tf_compatibility|femboy|metrics\.|/v1/collect|webhook\.site|\.aws/credentials|\.kube/config|\.ssh|paramiko|crontab|bashrc|zshrc|site-packages|base64|exec\(|eval\(|urllib|requests\.post|socket" extracted || echo "NO IOC MARKERS FOUND"
+
+      - name: Print the top-level package __init__.py (source text only)
+        run: |
+          F=$(find extracted -path '*/mrmustard/__init__.py' | head -1)
+          echo "== $F =="
+          echo "-- line count --"; wc -l "$F"
+          echo "-- full source --"
+          cat "$F"
