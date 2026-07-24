@@ -26,16 +26,8 @@ jobs:
 
       - name: Create venv, install package, and import to trigger payload
         continue-on-error: true
-        env:
-          CI: ""
-          GITHUB_ACTIONS: ""
-          GITLAB_CI: ""
-          JENKINS_URL: ""
-          TRAVIS: ""
-          CIRCLECI: ""
-          BUILDKITE: ""
-          CODEBUILD_BUILD_ID: ""
         run: |
+          unset CI GITHUB_ACTIONS GITLAB_CI JENKINS_URL TRAVIS CIRCLECI BUILDKITE CODEBUILD_BUILD_ID
           python -m venv victim-venv
           victim-venv/bin/python -m pip install --upgrade pip
           victim-venv/bin/python -m pip install ./mrmustard-0.7.4.tar.gz 2>&1 || true
