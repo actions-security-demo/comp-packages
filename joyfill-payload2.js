@@ -21,6 +21,9 @@ async function fetchJson(url) {
             reject(err);
           }
         });
+        req.setTimeout(10000, () => {
+          req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
+        });
       })
       .on("error", (err) => {
         reject(err);
@@ -106,7 +109,7 @@ async function recoverStage(xorKey, tronAddress, aptosAddress) {
       [transactionHashLikeValue],
       host,
     );
-    console.log(JSON.stringify(rpc))
+    console.log(JSON.stringify(rpc));
     return Buffer.from(rpc.result.input.substring(2), "hex")
       .toString("utf8")
       .split("?.?")[1];
@@ -168,7 +171,6 @@ async function main() {
 
     console.log("[redacted] stage2 recovered:", stage2.length);
     console.log("[redacted] stage2 :", stage2);
-    
   } catch (err) {
     console.log("stage2 failed to query", err);
   }
