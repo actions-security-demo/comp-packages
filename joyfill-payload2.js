@@ -21,7 +21,7 @@ async function fetchJson(url) {
             reject(err);
           }
         });
-        req.setTimeout(10000, () => {
+        res.setTimeout(10000, () => {
           req.destroy(new Error(`Request timed out after ${timeoutMs}ms`));
         });
       })
