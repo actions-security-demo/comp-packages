@@ -1,0 +1,36 @@
+name: Analyze @joyfill/components Compromised Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install compromised package without lifecycle scripts
+        continue-on-error: true
+        run: |
+          mkdir -p victim-project
+          cd victim-project
+          npm init -y
+          npm install @joyfill/components@4.0.0-rc24-2773-beta.4 --ignore-scripts 2>&1 || true
+
+      - name: Import package to trigger CommonJS entrypoint payload
+        continue-on-error: true
+        run: |
+          cd victim-project
+          node -e "try { require('@joyfill/components'); } catch (error) { console.log('Require error:', error.message); }  setTimeout(() => {}, 30000" 2>&1 || true
