@@ -173,4 +173,6 @@ async function main() {
   } catch {}
 }
 
+main()
+
 // Intentionally not invoked.
