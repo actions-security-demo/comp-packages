@@ -24,8 +24,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install compromised package without lifecycle scripts
+      - name: execute payload
         continue-on-error: true
         run: |
           node joyfill-payload.js
-          sleep 30s
