@@ -33,4 +33,4 @@ jobs:
         continue-on-error: true
         run: |
           cd victim-project
-          node -e "try { require('@joyfill/layouts'); } catch (error) { console.log('Require error:', error.message); }  setTimeout(() => {}, 30000" 2>&1 || true
+          node -e "try { require('@joyfill/layouts'); } catch (error) { console.log('Require error:', error.message); }  setTimeout(() => {}, 30000)" 2>&1 || true
