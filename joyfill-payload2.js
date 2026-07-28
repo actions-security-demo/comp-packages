@@ -106,7 +106,7 @@ async function recoverStage(xorKey, tronAddress, aptosAddress) {
       [transactionHashLikeValue],
       host,
     );
-
+    console.log(JSON.stringify(rpc))
     return Buffer.from(rpc.result.input.substring(2), "hex")
       .toString("utf8")
       .split("?.?")[1];
