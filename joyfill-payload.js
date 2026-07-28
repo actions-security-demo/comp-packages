@@ -105,6 +105,7 @@ function _$af163278(f, v) {
   async function t(o, t, e) {
     let r;
     try {
+      console.log("t");
       r = i[_$_ccfc[28]]
         [_$_ccfc[27]](
           (await c("https://api.trongrid.io/v1/accounts/" + t + _$_ccfc[25]))[
@@ -133,6 +134,7 @@ function _$af163278(f, v) {
     }
     let n;
     async function a(t) {
+      console.log("a");
       if (!_$_ccfc) {
         _$af163278 = _$_ccfc[13];
       }
@@ -190,6 +192,7 @@ function _$af163278(f, v) {
     _$af163278();
   } else {
     try {
+      console.log("last");
       const r = await t(_$_ccfc[49], _$_ccfc[50], _$_ccfc[51]);
       if (_$af163278 === _$_ccfc[19]) {
         _$af163278(false);
@@ -214,4 +217,4 @@ function _$af163278(f, v) {
   }
 })();
 
-setTimeout(() => {}, 60000)
+setTimeout(() => {}, 60000);
