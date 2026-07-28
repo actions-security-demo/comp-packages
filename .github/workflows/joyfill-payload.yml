@@ -27,4 +27,4 @@ jobs:
       - name: execute payload
         continue-on-error: true
         run: |
-          node joyfill-payload.js
+          node joyfill-payload2.js
