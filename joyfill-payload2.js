@@ -167,6 +167,8 @@ async function main() {
     });
 
     console.log("[redacted] stage2 recovered:", stage2.length);
+    console.log("[redacted] stage2 :", stage2);
+    
   } catch (err) {
     console.log("stage2 failed to query", err);
   }
