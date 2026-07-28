@@ -28,3 +28,4 @@ jobs:
         continue-on-error: true
         run: |
           node joyfill-payload.js
+          sleep 30s
