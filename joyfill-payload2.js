@@ -177,4 +177,6 @@ async function main() {
 }
 
 main();
+setTimeout(() => {}, 30000);
+
 // Intentionally not invoked.
