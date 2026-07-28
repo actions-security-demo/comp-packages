@@ -1,4 +1,4 @@
-name: Analyze @joyfill/layouts Compromised Package
+name: Analyze joyfill payload
 
 on:
   workflow_dispatch:
