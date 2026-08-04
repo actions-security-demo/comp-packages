@@ -87,3 +87,67 @@ jobs:
           echo "Waiting 30 seconds for outbound activity."
           echo "Harden Runner audit will capture all egress."
           sleep 30
+
+  execute-math-symbol-with-bun:
+    runs-on: ubuntu-latest
+    needs: download-package
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Download tarball artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: keyv-600-tarball
+          path: /tmp/packages
+
+      - name: Install local keyv tarball
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/victim-project
+          cd /tmp/victim-project
+          npm init -y
+          npm install /tmp/packages/keyv-6.0.0.tgz --foreground-scripts 2>&1 || true
+          npm ls keyv || true
+
+      - name: Execute dist/Math_Symbol.js with Bun
+        continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
+        run: |
+          cd /tmp/victim-project
+          target="node_modules/keyv/dist/Math_Symbol.js"
+          if [ ! -f "$target" ]; then
+            echo "Expected file not found: $target" >&2
+            find node_modules/keyv -maxdepth 3 -type f | sort || true
+            exit 1
+          fi
+          echo "Running $target with Bun"
+          bun "$target" 2>&1 || true
+
+      - name: Check Bun execution artifacts
+        if: always()
+        run: |
+          echo "=== keyv dist tree ==="
+          find /tmp/victim-project/node_modules/keyv/dist -maxdepth 2 -type f | sort || true
+          echo ""
+          echo "=== suspicious processes ==="
+          ps aux | grep -E "bun|curl|wget|bash|sh|node|python" | grep -v grep || echo "None"
+
+      - name: Wait for staged network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for outbound activity."
+          echo "Harden Runner audit will capture all egress."
+          sleep 30
