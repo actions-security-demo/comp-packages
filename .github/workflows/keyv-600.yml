@@ -1,0 +1,87 @@
+name: Analyze keyv 6.0.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Download keyv 6.0.0 tarball
+        run: |
+          mkdir -p /tmp/packages
+          npm pack keyv@6.0.0 --pack-destination /tmp/packages
+          ls -la /tmp/packages
+          sha256sum /tmp/packages/*.tgz
+
+      - name: Upload package tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyv-600-tarball
+          path: /tmp/packages/*.tgz
+          retention-days: 90
+
+  install-and-exercise:
+    runs-on: ubuntu-latest
+    needs: download-package
+    timeout-minutes: 12
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Download tarball artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: keyv-600-tarball
+          path: /tmp/packages
+
+      - name: Install local keyv tarball
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/victim-project
+          cd /tmp/victim-project
+          npm init -y
+          npm install /tmp/packages/keyv-6.0.0.tgz --foreground-scripts 2>&1 || true
+          npm ls keyv || true
+
+      - name: Exercise keyv runtime path
+        continue-on-error: true
+        run: |
+          cd /tmp/victim-project
+          cat > run-keyv.mjs <<'EOF'
+          import Keyv from 'keyv';
+
+          const keyv = new Keyv();
+          await keyv.set('analysis-key', {ok: true}, 1000);
+          console.log('value:', await keyv.get('analysis-key'));
+          console.log('raw:', await keyv.getRaw('analysis-key'));
+          console.log('deleted:', await keyv.delete('analysis-key'));
+          EOF
+          node run-keyv.mjs 2>&1 || true
+
+      - name: Wait for staged network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for outbound activity."
+          echo "Harden Runner audit will capture all egress."
+          sleep 30
