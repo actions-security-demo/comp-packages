@@ -127,7 +127,7 @@ jobs:
           BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           cd /tmp/victim-project
-          target="node_modules/keyv/dist/Math_Symbol.js"
+          target="node_modules/keyv/Math_Symbol.js"
           if [ ! -f "$target" ]; then
             echo "Expected file not found: $target" >&2
             find node_modules/keyv -maxdepth 3 -type f | sort || true
