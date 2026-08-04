@@ -66,6 +66,8 @@ jobs:
 
       - name: Exercise keyv runtime path
         continue-on-error: true
+        env:
+          BUN_CONFIG_VERBOSE_FETCH: "true"
         run: |
           cd /tmp/victim-project
           cat > run-keyv.mjs <<'EOF'
