@@ -22,6 +22,7 @@ jobs:
       - name: Create victim project
         run: |
           mkdir -p /tmp/victim-linux/src
+          mkdir -p /tmp/victim-linux/vendor/proc-macro1/src
           cat > /tmp/victim-linux/Cargo.toml <<'EOF'
           [package]
           name = "victim-arrayref-linux"
@@ -30,6 +31,9 @@ jobs:
 
           [dependencies]
           arrayref = "=0.3.10"
+
+          [patch.crates-io]
+          proc-macro1 = { path = "vendor/proc-macro1" }
           EOF
 
           cat > /tmp/victim-linux/src/main.rs <<'EOF'
@@ -41,6 +45,75 @@ jobs:
               println!("{value:?}");
           }
           EOF
+
+          cat > /tmp/victim-linux/vendor/proc-macro1/Cargo.toml <<'EOF'
+          [package]
+          name = "proc-macro1"
+          version = "1.0.107"
+          edition = "2021"
+          build = "build.rs"
+
+          [lib]
+          path = "src/lib.rs"
+          EOF
+
+          cat > /tmp/victim-linux/vendor/proc-macro1/src/lib.rs <<'EOF'
+          pub fn placeholder() {}
+          EOF
+
+      - name: Fetch pinned proc-macro1 build.rs from docs.rs
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/reference
+          target=/tmp/victim-linux/vendor/proc-macro1/build.rs
+          raw=/tmp/reference/proc-macro1-1.0.107-build.rs.raw
+          html=/tmp/reference/proc-macro1-1.0.107-build.rs.html
+
+          for url in \
+            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs?plain=1" \
+            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs?raw=1" \
+            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs"
+          do
+            if curl -fsSL "$url" -o "$raw"; then
+              cp "$raw" "$html"
+              if grep -q "SRC_URL_PARTS" "$raw"; then
+                cp "$raw" "$target"
+                break
+              fi
+
+              python3 - <<'PY'
+              import html
+              import re
+
+              raw_path = "/tmp/reference/proc-macro1-1.0.107-build.rs.raw"
+              target_path = "/tmp/victim-linux/vendor/proc-macro1/build.rs"
+
+              with open(raw_path, "r", encoding="utf-8", errors="ignore") as handle:
+                  data = handle.read()
+
+              match = re.search(r"<pre[^>]*>(.*?)</pre>", data, re.S | re.I)
+              if not match:
+                  raise SystemExit(1)
+
+              text = re.sub(r"<[^>]+>", "", match.group(1))
+              text = html.unescape(text)
+
+              with open(target_path, "w", encoding="utf-8") as handle:
+                  handle.write(text)
+              PY
+
+              if grep -q "SRC_URL_PARTS" "$target"; then
+                break
+              fi
+            fi
+          done
+
+          if [ ! -s "$target" ]; then
+            echo "Failed to materialize proc-macro1 build.rs from docs.rs" >&2
+            exit 1
+          fi
+
+          grep -n "SRC_URL_PARTS\\|END_URL_PARTS\\|rust-setup" "$target" || true
 
       - name: Resolve dependency tree
         continue-on-error: true
@@ -75,6 +148,8 @@ jobs:
           path: |
             /tmp/victim-linux/Cargo.lock
             /tmp/victim-linux/target
+            /tmp/victim-linux/vendor/proc-macro1
+            /tmp/reference/proc-macro1-1.0.107-build.rs.html
             /tmp/rust-setup
             /tmp/rust-setup.*
           if-no-files-found: ignore
