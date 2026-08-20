@@ -37,28 +37,33 @@ jobs:
           name = "proc-macro1-buildrs-runner"
           version = "0.1.0"
           edition = "2021"
+          build = "build.rs"
 
           [dependencies]
+          EOF
+
+          cat > /tmp/proc-macro1/build-deps.toml <<'EOF'
           base64 = "0.22.1"
           rustls = { version = "0.23.32", features = ["ring"] }
           ureq = { version = "2.12.1", features = ["tls", "json"] }
           EOF
 
           cat > /tmp/proc-macro1/src/main.rs <<'EOF'
-          include!("/tmp/proc-macro1/build.rs");
+          fn main() {
+              println!("runner compiled");
+          }
           EOF
 
-      - name: Build runner
+          printf '\n[build-dependencies]\n' >> /tmp/proc-macro1/Cargo.toml
+          cat /tmp/proc-macro1/build-deps.toml >> /tmp/proc-macro1/Cargo.toml
+          rm /tmp/proc-macro1/build-deps.toml
+
+      - name: Build package to trigger build.rs
         continue-on-error: true
         run: |
           cd /tmp/proc-macro1
           cargo build --release -vv 2>&1 || true
           ls -la /tmp/proc-macro1
-
-      - name: Execute build.rs payload
-        continue-on-error: true
-        run: |
-          /tmp/proc-macro1/target/release/proc-macro1-buildrs-runner 2>&1 || true
 
       - name: Check artifacts
         if: always()
