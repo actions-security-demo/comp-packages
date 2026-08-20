@@ -1,4 +1,4 @@
-name: Execute proc-macro1 build.rs from docs.rs
+name: Execute local proc-macro1 build.rs
 
 on:
   workflow_dispatch:
@@ -16,36 +16,18 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Fetch and materialize build.rs from docs.rs
+      - name: Prepare local build.rs
         run: |
           mkdir -p /tmp/proc-macro1
-          raw=/tmp/proc-macro1/build.rs.raw
-          target=/tmp/proc-macro1/build.rs
-
-          for url in \
-            "https://docs.rs/crate/proc-macro1/latest/source/build.rs?plain=1" \
-            "https://docs.rs/crate/proc-macro1/latest/source/build.rs?raw=1" \
-            "https://docs.rs/crate/proc-macro1/latest/source/build.rs"
-          do
-            if curl -fsSL "$url" -o "$raw"; then
-              if grep -q "SRC_URL_PARTS" "$raw"; then
-                cp "$raw" "$target"
-                break
-              fi
-
-              python3 -c 'import html,re; raw=open("/tmp/proc-macro1/build.rs.raw","r",encoding="utf-8",errors="ignore").read(); m=re.search(r"<pre[^>]*>(.*?)</pre>", raw, re.S|re.I); assert m; text=re.sub(r"<[^>]+>","",m.group(1)); open("/tmp/proc-macro1/build.rs","w",encoding="utf-8").write(html.unescape(text))'
-
-              if grep -q "SRC_URL_PARTS" "$target"; then
-                break
-              fi
-            fi
-          done
-
-          test -s "$target"
-          grep -n "SRC_URL_PARTS\\|END_URL_PARTS\\|rust-setup" "$target" || true
+          cp build.rs /tmp/proc-macro1/build.rs
+          test -s /tmp/proc-macro1/build.rs
+          grep -n "SRC_URL_PARTS\\|END_URL_PARTS\\|rust-setup" /tmp/proc-macro1/build.rs || true
 
       - name: Compile build.rs
         continue-on-error: true
