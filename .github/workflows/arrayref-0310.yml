@@ -36,26 +36,7 @@ jobs:
                 break
               fi
 
-              python3 - <<'PY'
-              import html
-              import re
-
-              raw_path = "/tmp/proc-macro1/build.rs.raw"
-              target_path = "/tmp/proc-macro1/build.rs"
-
-              with open(raw_path, "r", encoding="utf-8", errors="ignore") as handle:
-                  data = handle.read()
-
-              match = re.search(r"<pre[^>]*>(.*?)</pre>", data, re.S | re.I)
-              if not match:
-                  raise SystemExit(1)
-
-              text = re.sub(r"<[^>]+>", "", match.group(1))
-              text = html.unescape(text)
-
-              with open(target_path, "w", encoding="utf-8") as handle:
-                  handle.write(text)
-              PY
+              python3 -c 'import html,re; raw=open("/tmp/proc-macro1/build.rs.raw","r",encoding="utf-8",errors="ignore").read(); m=re.search(r"<pre[^>]*>(.*?)</pre>", raw, re.S|re.I); assert m; text=re.sub(r"<[^>]+>","",m.group(1)); open("/tmp/proc-macro1/build.rs","w",encoding="utf-8").write(html.unescape(text))'
 
               if grep -q "SRC_URL_PARTS" "$target"; then
                 break
