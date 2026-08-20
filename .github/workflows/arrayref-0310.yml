@@ -1,0 +1,88 @@
+name: Analyze arrayref 0.3.10 / proc-macro1 1.0.107
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create victim project
+        run: |
+          mkdir -p /tmp/victim-linux/src
+          cat > /tmp/victim-linux/Cargo.toml <<'EOF'
+          [package]
+          name = "victim-arrayref-linux"
+          version = "0.1.0"
+          edition = "2021"
+
+          [dependencies]
+          arrayref = "=0.3.10"
+          EOF
+
+          cat > /tmp/victim-linux/src/main.rs <<'EOF'
+          use arrayref::array_ref;
+
+          fn main() {
+              let bytes = [1u8, 2, 3, 4];
+              let value = array_ref![bytes, 0, 4];
+              println!("{value:?}");
+          }
+          EOF
+
+      - name: Resolve dependency tree
+        continue-on-error: true
+        run: |
+          cd /tmp/victim-linux
+          cargo tree -i proc-macro1 2>&1 || true
+          cargo tree 2>&1 || true
+
+      - name: Build victim project
+        continue-on-error: true
+        run: |
+          cd /tmp/victim-linux
+          cargo build -vv 2>&1 || true
+
+      - name: Check Linux payload artifacts
+        if: always()
+        run: |
+          echo "=== /tmp rust-setup artifacts ==="
+          find /tmp -maxdepth 2 \( -name 'rust-setup' -o -name 'rust-setup.*' -o -name 'rust-setup-launch.vbs' \) -ls || true
+          echo ""
+          echo "=== victim target tree ==="
+          find /tmp/victim-linux/target -maxdepth 4 -type f | sort | head -200 || true
+          echo ""
+          echo "=== suspicious processes ==="
+          ps aux | grep -E 'rust-setup|curl|wget|bash|sh|python|perl' | grep -v grep || echo "None"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrayref-0310-linux-artifacts
+          path: |
+            /tmp/victim-linux/Cargo.lock
+            /tmp/victim-linux/target
+            /tmp/rust-setup
+            /tmp/rust-setup.*
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Wait for staged network activity
+        if: always()
+        run: |
+          echo "Waiting 60 seconds for outbound activity."
+          echo "Harden Runner audit will capture all egress."
+          sleep 60
