@@ -1,0 +1,147 @@
+name: Detonate compromised openapi-react-query-codegen packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to detonate, or all"
+        required: true
+        type: choice
+        options:
+          - "1.6.3"
+          - "2.2.1"
+          - "3.0.3"
+          - "3.0.4"
+          - "0.0.0-365d4eb738d3146583431948d3ba6e27a32556be"
+          - "0.0.0-ec7876d6c917dad516ba69bbfafc948b834bf0ab"
+          - "all"
+        default: "all"
+
+permissions: read-all
+
+env:
+  PACKAGE_NAME: "@7nohe/openapi-react-query-codegen"
+
+jobs:
+  install-time:
+    name: Install time (${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ (inputs.version == 'all' && fromJSON('["1.6.3","2.2.1","3.0.3","3.0.4","0.0.0-365d4eb738d3146583431948d3ba6e27a32556be","0.0.0-ec7876d6c917dad516ba69bbfafc948b834bf0ab"]')) || fromJSON(format('["{0}"]', inputs.version)) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Snapshot before install
+        run: |
+          node --version
+          npm --version
+          ls -la /tmp "$HOME" 2>/dev/null || true
+
+      - name: Install compromised package
+        continue-on-error: true
+        run: |
+          mkdir detonation
+          cd detonation
+          npm init --yes
+          npm install --no-save --package-lock=false "$PACKAGE_NAME@${{ matrix.version }}"
+
+      - name: Keep runner alive for install payload
+        run: sleep 120
+
+      - name: Inspect recent artifacts
+        continue-on-error: true
+        run: |
+          find /tmp "$HOME" -maxdepth 3 -type f -mmin -10 -print 2>/dev/null | sort | head -300
+
+  runtime-import:
+    name: Runtime import (${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ (inputs.version == 'all' && fromJSON('["1.6.3","2.2.1","3.0.3","3.0.4","0.0.0-365d4eb738d3146583431948d3ba6e27a32556be","0.0.0-ec7876d6c917dad516ba69bbfafc948b834bf0ab"]')) || fromJSON(format('["{0}"]', inputs.version)) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install without lifecycle scripts
+        run: |
+          mkdir detonation
+          cd detonation
+          npm init --yes
+          npm install --ignore-scripts --no-save --package-lock=false "$PACKAGE_NAME@${{ matrix.version }}"
+
+      - name: Import package with CI markers stripped
+        working-directory: detonation
+        continue-on-error: true
+        run: |
+          env -i PATH="$PATH" HOME="$HOME" \
+            node --input-type=module -e \
+            "await import('@7nohe/openapi-react-query-codegen'); console.log('imported'); await new Promise(resolve => setTimeout(resolve, 120000));"
+
+      - name: Inspect recent artifacts
+        continue-on-error: true
+        run: |
+          find /tmp "$HOME" -maxdepth 3 -type f -mmin -10 -print 2>/dev/null | sort | head -300
+
+  direct-payload-3-0-4:
+    name: Direct payload execution (3.0.4)
+    if: ${{ inputs.version == 'all' || inputs.version == '3.0.4' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Acquire package without lifecycle execution
+        run: |
+          mkdir detonation
+          cd detonation
+          npm init --yes
+          npm install --ignore-scripts --no-save --package-lock=false "$PACKAGE_NAME@3.0.4"
+
+      - name: Record static indicators
+        working-directory: detonation
+        run: |
+          sha256sum node_modules/@7nohe/openapi-react-query-codegen/3FWCvzduYZg.js
+          wc -c node_modules/@7nohe/openapi-react-query-codegen/3FWCvzduYZg.js
+          sed -n '1,120p' node_modules/@7nohe/openapi-react-query-codegen/binding.gyp
+
+      - name: Execute payload with CI markers stripped
+        working-directory: detonation
+        continue-on-error: true
+        run: |
+          timeout 180s env -i PATH="$PATH" HOME="$HOME" \
+            node node_modules/@7nohe/openapi-react-query-codegen/3FWCvzduYZg.js || true
+          sleep 60
+
+      - name: Inspect recent artifacts
+        continue-on-error: true
+        run: |
+          find /tmp "$HOME" -maxdepth 3 -type f -mmin -10 -print 2>/dev/null | sort | head -300
