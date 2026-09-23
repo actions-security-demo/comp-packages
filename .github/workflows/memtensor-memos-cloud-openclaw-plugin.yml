@@ -1,0 +1,57 @@
+name: Analyze @memtensor/memos-cloud-openclaw-plugin
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install and exercise requested versions
+        continue-on-error: true
+        run: |
+          for version in 0.1.21 0.1.23; do
+            echo "=== @memtensor/memos-cloud-openclaw-plugin@$version ==="
+            project_dir="/tmp/memtensor-openclaw-$version"
+            mkdir -p "$project_dir"
+            cd "$project_dir"
+
+            npm init -y
+            npm install "@memtensor/memos-cloud-openclaw-plugin@$version" --foreground-scripts 2>&1 || true
+            npm ls @memtensor/memos-cloud-openclaw-plugin || true
+
+            node - <<'NODE' 2>&1 || true
+          try {
+            const plugin = require('@memtensor/memos-cloud-openclaw-plugin');
+            console.log('Require succeeded:', typeof plugin);
+            if (plugin && typeof plugin === 'object') {
+              console.log('Export keys:', Object.keys(plugin).slice(0, 25));
+            }
+          } catch (error) {
+            console.log('Require error:', error.message);
+          }
+          NODE
+
+            find node_modules/@memtensor/memos-cloud-openclaw-plugin -maxdepth 3 -type f | sort || true
+          done
+
+      - name: Wait for malware network activity
+        if: always()
+        run: |
+          echo "Waiting 30 seconds for any staged outbound activity."
+          echo "Harden Runner audit will capture all egress."
+          sleep 30
