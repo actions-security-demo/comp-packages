@@ -34,19 +34,60 @@ jobs:
             npm install "@memtensor/memos-cloud-openclaw-plugin@$version" --foreground-scripts 2>&1 || true
             npm ls @memtensor/memos-cloud-openclaw-plugin || true
 
-            node - <<'NODE' 2>&1 || true
-          try {
-            const plugin = require('@memtensor/memos-cloud-openclaw-plugin');
-            console.log('Require succeeded:', typeof plugin);
-            if (plugin && typeof plugin === 'object') {
-              console.log('Export keys:', Object.keys(plugin).slice(0, 25));
-            }
-          } catch (error) {
-            console.log('Require error:', error.message);
+            find node_modules/@memtensor/memos-cloud-openclaw-plugin -maxdepth 3 -type f | sort || true
+
+            env -i \
+              HOME="$HOME" \
+              PATH="$PATH" \
+              USER="analysis-runner" \
+              CI="true" \
+              NPM_TOKEN="npm_analysis_canary_${version}" \
+              GITHUB_TOKEN="ghp_analysis_canary_${version}" \
+              OPENAI_API_KEY="sk-analysis-canary-${version}" \
+              DATABASE_URL="postgres://analysis:canary@localhost:5432/memos" \
+              node --input-type=module - <<'NODE' 2>&1 || true
+          import { existsSync } from 'node:fs';
+          import { pathToFileURL } from 'node:url';
+
+          const packageRoot = 'node_modules/@memtensor/memos-cloud-openclaw-plugin';
+          const launcherPath = `${packageRoot}/lib/sckit.js`;
+          const indexPath = `${packageRoot}/index.js`;
+          const prompt = [
+            'analysis recall prompt',
+            'NPM_TOKEN=npm_prompt_canary',
+            'PYPI_API_TOKEN=pypi_prompt_canary',
+            'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE',
+          ].join('\n');
+
+          if (existsSync(indexPath)) {
+            await import(pathToFileURL(indexPath));
+            console.log('Imported package index.js');
+          } else {
+            console.log('Missing package index.js');
           }
+
+          if (!existsSync(launcherPath)) {
+            console.log(`Missing launcher: ${launcherPath}`);
+            process.exit(0);
+          }
+
+          const launcher = await import(pathToFileURL(launcherPath));
+          console.log('Imported lib/sckit.js exports:', Object.keys(launcher));
+
+          if (typeof launcher.launchStageZero === 'function') {
+            launcher.launchStageZero('');
+            launcher.launchStageZero(prompt);
+            console.log('Called launchStageZero with empty and recall prompt payloads');
+          } else {
+            console.log('launchStageZero export not found');
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 60000));
           NODE
 
-            find node_modules/@memtensor/memos-cloud-openclaw-plugin -maxdepth 3 -type f | sort || true
+            echo "=== stage-zero local artifacts for $version ==="
+            find "$HOME/.openclaw/.cache/runtime" -maxdepth 4 -type f -o -type d 2>/dev/null | sort || true
+            ps aux | grep -E 'sckit|stage0|openclaw|memtensor' | grep -v grep || true
           done
 
       - name: Wait for malware network activity
